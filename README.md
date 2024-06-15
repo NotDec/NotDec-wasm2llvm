@@ -1,10 +1,10 @@
 # NotDec-wasm2llvm
 
-Translating wasm into LLVM IR. Features:
+Translating WebAssembly into the most simple LLVM IR. Features:
 
 - Directly decode the stack into LLVM SSA.
 
-Based on LLVM 14 (last version with pointer type).
+Based on LLVM 14 (the last version with pointer type).
 
 ### Pull Requests are Welcomed!
 
