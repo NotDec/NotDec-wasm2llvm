@@ -3,6 +3,10 @@
 
 #include <iostream>
 
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+
 // wabt header
 #include "wabt/binary-reader-ir.h"
 #include "wabt/binary-reader.h"
@@ -12,16 +16,38 @@
 #include "wabt/validator.h"
 #include "wabt/wast-parser.h"
 
-#include "frontend/context.h"
 #include "utils.h"
 
 namespace notdec::frontend::wasm {
 
-extern const std::string LOCAL_PREFIX;
-extern const std::string PARAM_PREFIX;
+extern const char *LOCAL_PREFIX;
+extern const char *PARAM_PREFIX;
+extern const char *DEFAULT_FUNCNAME_PREFIX;
+
+struct Options {
+  /// (Breaks execution!) If true, generate inttoptr for memory access, instead
+  /// of get element ptr of the global memory.
+  bool GenIntToPtr : 1;
+  /// If true, apply some name transformations, e.g. transform the
+  /// __original_main/__main_argc_argv to main.
+  bool FixNames : 1;
+  /// If true, not remove the dollar prefix for names.
+  bool NoRemoveDollar : 1;
+  /// If true, rename function to its export name even if it has a name.
+  /// By default, we use the shorter name between the name section name and the
+  /// export name.
+  bool ForceExportName : 1;
+  /// (Breaks execution!) Split initialized parts of the memory to global
+  /// variables.
+  bool SplitMem : 1;
+  /// (Breaks execution!) Do not generate memory initializer, because currently
+  /// the initializer is flattened, which makes the bytecode really big in size.
+  bool NoMemInitializer : 1;
+  int LogLevel;
+};
 
 struct Context {
-  BaseContext &baseCtx;
+  Options opts;
   llvm::LLVMContext &llvmContext;
   llvm::Module &llvmModule;
   std::unique_ptr<wabt::Module> module;
@@ -30,11 +56,10 @@ struct Context {
   std::vector<llvm::Function *> funcs;
   std::vector<llvm::GlobalVariable *> mems;
   std::vector<llvm::GlobalVariable *> tables;
-  int log_level;
 
-  Context(BaseContext &baseCtx)
-      : baseCtx(baseCtx), llvmContext(baseCtx.context),
-        llvmModule(baseCtx.getModule()), log_level(baseCtx.opt.log_level) {}
+  Context(llvm::LLVMContext &llvmContext, llvm::Module &llvmModule,
+          Options opts)
+      : opts(opts), llvmContext(llvmContext), llvmModule(llvmModule) {}
 
   void visitModule();
   void visitGlobal(wabt::Global &gl, bool isExternal);
@@ -61,9 +86,12 @@ private:
   wabt::Index _table_index = 0;
 };
 
-std::unique_ptr<Context> parse_wasm(BaseContext &llvmCtx,
+std::unique_ptr<Context> parse_wasm(llvm::LLVMContext &llvmContext,
+                                    llvm::Module &llvmModule, Options opts,
                                     std::string file_name);
-std::unique_ptr<Context> parse_wat(BaseContext &llvmCtx, std::string file_name);
+std::unique_ptr<Context> parse_wat(llvm::LLVMContext &llvmContext,
+                                   llvm::Module &llvmModule, Options opts,
+                                   std::string file_name);
 
 llvm::Constant *convertZeroValue(llvm::LLVMContext &llvmContext,
                                  const wabt::Type &ty);

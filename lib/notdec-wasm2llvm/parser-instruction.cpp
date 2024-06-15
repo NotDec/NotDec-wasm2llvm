@@ -1,10 +1,11 @@
-#include "frontend/wasm/parser-block.h"
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/GlobalVariable.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/Support/Alignment.h>
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/raw_ostream.h>
+
+#include "parser-block.h"
 
 namespace notdec::frontend::wasm {
 
@@ -235,7 +236,7 @@ llvm::Value *BlockContext::convertStackAddr(uint64_t offset) {
       base, ConstantInt::get(base->getType(), offset, false), "calcOffset");
 
   // 反编译（非重编译）时不生成gep
-  if (!ctx.baseCtx.opt.recompile) {
+  if (ctx.opts.GenIntToPtr) {
     return irBuilder.CreateIntToPtr(
         base, PointerType::get(IntegerType::get(llvmContext, 8), 0));
   }
@@ -1873,7 +1874,7 @@ void BlockContext::visitCallIndirectInst(wabt::CallIndirectExpr *expr) {
 
   Value *funcPtr = irBuilder.CreateLoad(ptr->getType()->getPointerElementType(),
                                         ptr, "callind_funcptr");
-  // if (ctx.baseCtx.opt.recompile)
+  // if (ctx.opts.GenIntToPtr)
   funcPtr =
       irBuilder.CreateBitOrPointerCast(funcPtr, PointerType::get(funcType, 0));
   auto callArgsAlloca = (Value **)calloc(sizeof(Value *), paramCount);

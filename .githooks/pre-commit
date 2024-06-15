@@ -1,0 +1,9 @@
+#!/bin/bash
+echo "Local Pre-commit Hook...\n"
+
+set -eu
+
+for FILE in $(find lib tools include -name *.cpp -o -name *.h)
+do
+  clang-format --dry-run --Werror --style="{BasedOnStyle: llvm, IndentWidth: 2}" $FILE
+done

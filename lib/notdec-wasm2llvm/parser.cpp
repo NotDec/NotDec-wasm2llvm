@@ -1,21 +1,27 @@
-#include "frontend/wasm/parser.h"
-#include "frontend/wasm/parser-block.h"
-#include "utils.h"
+#include <cstdlib>
+#include <llvm/IR/Function.h>
+#include <new>
+#include <set>
+
 #include "wabt/base-types.h"
 #include "wabt/ir.h"
-#include <cstdlib>
 #include <llvm/ADT/ArrayRef.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/IR/Constant.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/GlobalVariable.h>
-#include <new>
-#include <set>
+
+#include "parser-block.h"
+#include "parser.h"
+#include "utils.h"
 
 namespace notdec::frontend::wasm {
 
-std::unique_ptr<Context> parse_wat(BaseContext &llvmCtx,
+const char *DEFAULT_FUNCNAME_PREFIX = "func_";
+
+std::unique_ptr<Context> parse_wat(llvm::LLVMContext &llvmContext,
+                                   llvm::Module &llvmModule, Options opts,
                                    std::string file_name) {
   using namespace wabt;
   std::vector<uint8_t> file_data;
@@ -28,7 +34,8 @@ std::unique_ptr<Context> parse_wat(BaseContext &llvmCtx,
     return std::unique_ptr<Context>(nullptr);
   }
   // Context ctx(llvmCtx);
-  std::unique_ptr<Context> ret = std::make_unique<Context>(llvmCtx);
+  std::unique_ptr<Context> ret =
+      std::make_unique<Context>(llvmContext, llvmModule, opts);
 
   Errors errors;
   Features s_features;
@@ -53,15 +60,16 @@ std::unique_ptr<Context> parse_wat(BaseContext &llvmCtx,
   return ret;
 }
 
-std::unique_ptr<Context> parse_wasm(BaseContext &llvmCtx,
+std::unique_ptr<Context> parse_wasm(llvm::LLVMContext &llvmContext,
+                                    llvm::Module &llvmModule, Options opts,
                                     std::string file_name) {
   using namespace wabt;
   // 这部分代码来自WABT，解析wasm文件
   std::vector<uint8_t> file_data;
   Result result = ReadFile(file_name, &file_data);
 
-  // Context ctx(llvmCtx);
-  std::unique_ptr<Context> ret = std::make_unique<Context>(llvmCtx);
+  std::unique_ptr<Context> ret =
+      std::make_unique<Context>(llvmContext, llvmModule, opts);
   ret->module = std::make_unique<Module>();
   if (!Succeeded(result)) {
     std::cerr << "Read wasm file failed." << std::endl;
@@ -191,13 +199,16 @@ void Context::visitModule() {
     }
     Func &func = cast<FuncModuleField>(&field)->func;
     llvm::Function *function = declareFunc(func, false);
-    if (baseCtx.opt.compat_mode) {
-      if (function->getName().front() == '$') {
+    if (opts.FixNames) {
+      if (!opts.NoRemoveDollar && function->getName().front() == '$') {
         function->setName(removeDollar(function->getName()));
       }
       if (function->getName().equals("__original_main") ||
           function->getName().equals("__main_argc_argv")) {
         function->setLinkage(llvm::GlobalValue::LinkageTypes::ExternalLinkage);
+        if (llvm::Function *func = this->llvmModule.getFunction("main")) {
+          func->setName("");
+        }
         function->setName("main");
       }
       // Temporary fix for the sysY test cases
@@ -242,13 +253,22 @@ void Context::visitModule() {
       // 之前internal的时候同时自动设置了dso_local
       this->funcs[index]->setDSOLocal(false);
       // rename func with its export name
-      if (baseCtx.opt.compat_mode) {
-        std::string export_name = export_->name;
-        if (this->funcs[index]->getName().str().find("func_") == 0) {
+      std::string &export_name = export_->name;
+      if (!export_name.empty()) {
+        if (opts.ForceExportName) {
+          if (llvm::Function *func =
+                  this->llvmModule.getFunction(export_name)) {
+            func->setName("");
+          }
           this->funcs[index]->setName(export_name);
-        } else if (this->funcs[index]->getName().str().length() >
-                   export_name.length()) { // use shorter name
-          this->funcs[index]->setName(export_name);
+        } else {
+          // perfer shorter name
+          // if (this->funcs[index]->getName().str().length() >
+          //     export_name.length()) {
+          // use export name if name is empty
+          if (this->funcs[index]->getName().str().empty()) {
+            this->funcs[index]->setName(export_name);
+          }
         }
       }
       break;
@@ -282,6 +302,14 @@ void Context::visitModule() {
       break;
     }
   }
+
+  // assign default names to functions
+  for (std::size_t i = 0; i < this->funcs.size(); i++) {
+    if (this->funcs[i]->getName().empty()) {
+      this->funcs[i]->setName(DEFAULT_FUNCNAME_PREFIX + std::to_string(i));
+    }
+  }
+
   // elem段需要函数指针，所以依赖func段
   for (ElemSegment *elem : this->module->elem_segments) {
     visitElem(*elem);
@@ -303,8 +331,9 @@ llvm::GlobalVariable *Context::visitDataSegment(wabt::DataSegment &ds) {
   Type *memty = mem->getValueType();
   Constant *offset = visitInitExpr(ds.offset);
 
-  if (baseCtx.opt.recompile) {
-    if (!baseCtx.opt.expandMem) {
+  //
+  if (!opts.SplitMem) {
+    if (opts.NoMemInitializer) {
       // TODO
       return mem;
     }
@@ -359,9 +388,9 @@ llvm::GlobalVariable *Context::visitDataSegment(wabt::DataSegment &ds) {
   return mem;
 }
 
-const std::string LOCAL_PREFIX = "_local_";
-const std::string ARG_PREFIX = "_arg_";
-const std::string PARAM_PREFIX = "_param_";
+const char *LOCAL_PREFIX = "_local_";
+const char *ARG_PREFIX = "_arg_";
+const char *PARAM_PREFIX = "_param_";
 
 void Context::visitFunc(wabt::Func &func, llvm::Function *function) {
   using namespace llvm;
@@ -402,7 +431,7 @@ void Context::visitFunc(wabt::Func &func, llvm::Function *function) {
   BasicBlock *returnBlock =
       llvm::BasicBlock::Create(llvmContext, "return", function);
 
-  if (log_level >= level_debug) {
+  if (opts.LogLevel >= level_debug) {
     std::cerr << "Debug: Analyzing function " << func.name << "("
               << func.loc.filename << ":" << func.loc.line << ")" << std::endl;
   }
@@ -427,7 +456,7 @@ void Context::visitGlobal(wabt::Global &gl, bool isExternal) {
   std::string gname = gl.name.empty()
                           ? "__notdec_global_" + std::to_string(_glob_index)
                           : gl.name;
-  if (baseCtx.opt.compat_mode) {
+  if (!opts.NoRemoveDollar) {
     gname = removeDollar(gname);
   }
   Type *ty = convertType(llvmContext, gl.type);
@@ -467,7 +496,7 @@ void Context::visitTable(wabt::Table &table, bool isExternal) {
   if (table.elem_limits.has_max &&
       table.elem_limits.max != table.elem_limits.initial) {
     // TODO
-    if (log_level >= level_warning)
+    if (opts.LogLevel >= level_warning)
       std::cerr << __FILE__ << ":" << __LINE__ << ": "
                 << "Warning: table elem limits has max." << std::endl;
   }
@@ -517,7 +546,7 @@ void Context::visitElem(wabt::ElemSegment &elem) {
   Constant *offset_constant = visitInitExpr(elem.offset);
   wabt::Index offset = unwrapIntConstant(offset_constant);
   if (offset != 0) {
-    if (log_level >= level_warning)
+    if (opts.LogLevel >= level_warning)
       std::cerr << __FILE__ << ":" << __LINE__ << ": "
                 << "Warning: elem offset not zero." << std::endl;
   }
@@ -606,11 +635,8 @@ llvm::Function *Context::declareFunc(wabt::Func &func, bool isExternal) {
   using namespace llvm;
   FunctionType *funcType = convertFuncType(llvmContext, func.decl.sig);
   std::string fname = func.name;
-  if (baseCtx.opt.recompile || baseCtx.opt.compat_mode) {
+  if (!opts.NoRemoveDollar) {
     fname = removeDollar(func.name);
-  }
-  if (baseCtx.opt.compat_mode && fname.empty()) {
-    fname = "func_" + std::to_string(_func_index);
   }
   Function *function = Function::Create(funcType,
                                         isExternal ? Function::ExternalLinkage

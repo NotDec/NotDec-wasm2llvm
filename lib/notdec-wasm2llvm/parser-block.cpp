@@ -1,12 +1,13 @@
-
-#include "frontend/wasm/parser-block.h"
-#include "wabt/ir.h"
 #include <cassert>
 #include <cstdlib>
+
+#include "wabt/ir.h"
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Instruction.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/Support/Casting.h>
+
+#include "parser-block.h"
 
 namespace notdec::frontend::wasm {
 
