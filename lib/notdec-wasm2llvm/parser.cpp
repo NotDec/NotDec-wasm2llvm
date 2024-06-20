@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/Function.h>
 #include <new>
 #include <set>
@@ -540,8 +541,7 @@ void Context::visitElem(wabt::ElemSegment &elem) {
   // 2 把函数指针填入
   ArrayType *arr = cast<ArrayType>(gv->getValueType());
   // all null
-  Constant **buffer =
-      (Constant **)calloc(sizeof(Constant *), arr->getNumElements());
+  llvm::SmallVector<Constant *> buffer(arr->getNumElements());
   // 解析offset
   Constant *offset_constant = visitInitExpr(elem.offset);
   wabt::Index offset = unwrapIntConstant(offset_constant);
@@ -552,8 +552,8 @@ void Context::visitElem(wabt::ElemSegment &elem) {
   }
   for (wabt::Index i = 0; i < arr->getNumElements(); i++) {
     if (!(i >= offset && i < offset + elem.elem_exprs.size())) {
-      buffer[i] =
-          ConstantPointerNull::get(PointerType::get(arr->getElementType(), 0));
+      buffer[i] = ConstantPointerNull::get(
+          llvm::cast<PointerType>(arr->getElementType()));
       continue;
     }
     const wabt::ExprList &expr = elem.elem_exprs.at(i - offset);
@@ -573,15 +573,12 @@ void Context::visitElem(wabt::ElemSegment &elem) {
     }
   }
 
-  // ArrayRef<Constant*>(buffer, arr->getNumElements())
-  Constant *init =
-      ConstantArray::get(arr, makeArrayRef(buffer, arr->getNumElements()));
+  Constant *init = ConstantArray::get(arr, buffer);
   if (gv->hasInitializer()) {
     gv->getInitializer()->replaceAllUsesWith(init);
   } else {
     gv->setInitializer(init);
   }
-  // free(buffer);
 }
 
 llvm::Constant *Context::visitInitExpr(wabt::ExprList &expr) {

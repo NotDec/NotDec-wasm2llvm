@@ -1,0 +1,53 @@
+
+#include "interface.h"
+static cl::OptionCategory
+    Wasm2llvmCat("WebAssembly to LLVM frontend options",
+                 "These control the generated IR from notdec-wasm2llvm.");
+
+static cl::opt<bool>
+    GenIntToPtr("gen-int-to-ptr",
+                cl::desc("Generate inttoptr for memory access, instead of get "
+                         "element ptr of the global memory"),
+                cl::init(false), cl::cat(Wasm2llvmCat));
+
+static cl::opt<bool>
+    FixNames("fix-names",
+             cl::desc("apply some name transformations, e.g. transform the "
+                      "__original_main/__main_argc_argv to main"),
+             cl::init(false), cl::cat(Wasm2llvmCat));
+
+static cl::opt<bool>
+    NoRemoveDollar("no-remove-dollar",
+                   cl::desc("do not remove dollar '$' prefix from the name."),
+                   cl::init(false), cl::cat(Wasm2llvmCat));
+
+static cl::opt<bool> ForceExportName(
+    "force-export-name",
+    cl::desc("Rename function to its export name even if it has a name"),
+    cl::init(false), cl::cat(Wasm2llvmCat));
+
+static cl::opt<bool>
+    SplitMem("split-mem",
+             cl::desc("(Breaks execution!) Split initialized parts of the "
+                      "memory to global variables."),
+             cl::init(false), cl::cat(Wasm2llvmCat));
+
+static cl::opt<bool> NoMemInitializer(
+    "no-mem-initializer",
+    cl::desc("(Breaks execution!) Do not generate memory initializer, because "
+             "currently the initializer is flattened, which makes the bytecode "
+             "really big in size."),
+    cl::init(false), cl::cat(Wasm2llvmCat));
+
+notdec::frontend::wasm::Options getWasmOptions(int LogLevel) {
+  notdec::frontend::wasm::Options Opts = {
+      .GenIntToPtr = GenIntToPtr,
+      .FixNames = FixNames,
+      .NoRemoveDollar = NoRemoveDollar,
+      .ForceExportName = ForceExportName,
+      .SplitMem = SplitMem,
+      .NoMemInitializer = NoMemInitializer,
+      .LogLevel = LogLevel,
+  };
+  return Opts;
+}

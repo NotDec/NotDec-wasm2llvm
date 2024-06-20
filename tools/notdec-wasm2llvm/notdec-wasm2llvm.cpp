@@ -27,8 +27,8 @@ static cl::opt<std::string> outputPath("o", cl::desc("Specify output path"),
                                        cl::value_desc("output.ll"),
                                        cl::Optional);
 
-cl::opt<log_level>
-    logLevel("log-level", cl::desc("Log level:"),
+static cl::opt<log_level>
+    LogLevel("log-level", cl::desc("Log level:"),
              cl::values(clEnumValN(level_emergent, "emergent", "emergent"),
                         clEnumValN(level_alert, "alert", "alert"),
                         clEnumValN(level_critical, "critical", "critical"),
@@ -39,40 +39,7 @@ cl::opt<log_level>
                         clEnumValN(level_debug, "debug", "debug")),
              cl::init(level_notice));
 
-static cl::opt<bool>
-    GenIntToPtr("gen-int-to-ptr",
-                cl::desc("Generate inttoptr for memory access, instead of get "
-                         "element ptr of the global memory"),
-                cl::init(false));
-
-static cl::opt<bool>
-    FixNames("fix-names",
-             cl::desc("apply some name transformations, e.g. transform the "
-                      "__original_main/__main_argc_argv to main"),
-             cl::init(false));
-
-static cl::opt<bool>
-    NoRemoveDollar("no-remove-dollar",
-                   cl::desc("do not remove dollar '$' prefix from the name."),
-                   cl::init(false));
-
-static cl::opt<bool> ForceExportName(
-    "force-export-name",
-    cl::desc("Rename function to its export name even if it has a name"),
-    cl::init(false));
-
-static cl::opt<bool>
-    SplitMem("split-mem",
-             cl::desc("(Breaks execution!) Split initialized parts of the "
-                      "memory to global variables."),
-             cl::init(false));
-
-static cl::opt<bool> NoMemInitializer(
-    "no-mem-initializer",
-    cl::desc("(Breaks execution!) Do not generate memory initializer, because "
-             "currently the initializer is flattened, which makes the bytecode "
-             "really big in size."),
-    cl::init(false));
+#include "commandlines.def"
 
 std::string getSuffix(std::string fname) {
   std::size_t ind = fname.find_last_of('.');
@@ -101,15 +68,7 @@ int main(int argc, char *argv[]) {
   llvm::LLVMContext Ctx;
   std::unique_ptr<llvm::Module> mod;
   std::unique_ptr<Context> Context;
-  Options Opts = {
-      .GenIntToPtr = GenIntToPtr,
-      .FixNames = FixNames,
-      .NoRemoveDollar = NoRemoveDollar,
-      .ForceExportName = ForceExportName,
-      .SplitMem = SplitMem,
-      .NoMemInitializer = NoMemInitializer,
-      .LogLevel = logLevel,
-  };
+  Options Opts = getWasmOptions(LogLevel);
   if (inSuffix.size() == 0) {
     std::cout << "no extension for input file. exiting." << std::endl;
     return 0;

@@ -1,3 +1,4 @@
+#include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/GlobalVariable.h>
 #include <llvm/IR/Instructions.h>
@@ -1877,12 +1878,13 @@ void BlockContext::visitCallIndirectInst(wabt::CallIndirectExpr *expr) {
   // if (ctx.opts.GenIntToPtr)
   funcPtr =
       irBuilder.CreateBitOrPointerCast(funcPtr, PointerType::get(funcType, 0));
-  auto callArgsAlloca = (Value **)calloc(sizeof(Value *), paramCount);
+  // auto callArgsAlloca = (Value **)calloc(sizeof(Value *), paramCount);
+  llvm::SmallVector<Value *> callArgs(paramCount);
   // https://stackoverflow.com/questions/5458204/unsigned-int-reverse-iteration-with-for-loops
   for (wabt::Index i = paramCount; i-- > 0;) {
-    callArgsAlloca[i] = popStack();
+    callArgs[i] = popStack();
   }
-  ArrayRef<Value *> callArgs = ArrayRef<Value *>(callArgsAlloca, paramCount);
+  // ArrayRef<Value *> callArgs = ArrayRef<Value *>(callArgsAlloca, paramCount);
   // TODO MultiValue
   assert(expr->decl.GetNumResults() <= 1);
   Value *ret = irBuilder.CreateCall(funcType, funcPtr, callArgs);

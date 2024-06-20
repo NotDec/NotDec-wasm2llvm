@@ -1,5 +1,5 @@
-#ifndef _NOTDEC_UTILS_H_
-#define _NOTDEC_UTILS_H_
+#ifndef _NOTDEC_WASM2LLVM_UTILS_H_
+#define _NOTDEC_WASM2LLVM_UTILS_H_
 
 #include <cstdint>
 #include <cstring>
