@@ -12,6 +12,7 @@
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/GlobalVariable.h>
+#include <string>
 
 #include "parser-block.h"
 #include "parser.h"
@@ -101,6 +102,12 @@ std::unique_ptr<Context> parse_wasm(llvm::LLVMContext &llvmContext,
   return ret;
 }
 
+template <typename T> void inline setNameIfEmpty(T &field, std::string &name) {
+  if (field.name.empty()) {
+    field.name = name;
+  }
+}
+
 void Context::visitModule() {
   using namespace wabt;
   // TODO temporatily deduplicate.
@@ -130,25 +137,34 @@ void Context::visitModule() {
 
   // visit imports & build function index map
   for (Import *import : this->module->imports) {
+    std::string import_name = import->module_name + "." + import->field_name;
     switch (import->kind()) {
-    case ExternalKind::Func:
-      declareFunc(cast<FuncImport>(import)->func, true);
-      break;
+    case ExternalKind::Func: {
+      auto &Field = cast<FuncImport>(import)->func;
+      setNameIfEmpty(Field, import_name);
+      declareFunc(Field, true);
+    } break;
 
-    case ExternalKind::Memory:
+    case ExternalKind::Memory: {
       // create external memory variable
-      declareMemory(cast<MemoryImport>(import)->memory, true);
-      break;
+      auto &Field = cast<MemoryImport>(import)->memory;
+      setNameIfEmpty(Field, import_name);
+      declareMemory(Field, true);
+    } break;
 
-    case ExternalKind::Global:
+    case ExternalKind::Global: {
       // set global to external linkage
-      visitGlobal(cast<GlobalImport>(import)->global, true);
-      visitedGlobals.insert(&cast<GlobalImport>(import)->global);
-      break;
+      auto &Field = cast<GlobalImport>(import)->global;
+      setNameIfEmpty(Field, import_name);
+      visitGlobal(Field, true);
+      visitedGlobals.insert(&Field);
+    } break;
 
-    case ExternalKind::Table:
-      visitTable(cast<TableImport>(import)->table, true);
-      break;
+    case ExternalKind::Table: {
+      auto &Field = cast<TableImport>(import)->table;
+      setNameIfEmpty(Field, import_name);
+      visitTable(Field, true);
+    } break;
 
     case ExternalKind::Tag:
     default:
