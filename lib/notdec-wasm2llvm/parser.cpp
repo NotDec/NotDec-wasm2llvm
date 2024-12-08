@@ -387,6 +387,7 @@ llvm::GlobalVariable *Context::visitDataSegment(wabt::DataSegment &ds) {
     auto name = mem->getName().str() + "_" + addr;
 
     uint8_t *buffer = new uint8_t[data_size]; // TODO when to free?
+    OwnedBuffers.push_back(buffer);
     // copy data
     ::memcpy(buffer, ds.data.data(), data_size);
 

@@ -1,11 +1,13 @@
 #ifndef _NOTDEC_FRONTEND_WASM_PARSER_H_
 #define _NOTDEC_FRONTEND_WASM_PARSER_H_
 
+#include <cstdint>
 #include <iostream>
 
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
+#include <vector>
 
 // wabt header
 #include "wabt/binary-reader-ir.h"
@@ -32,9 +34,19 @@ struct Context {
   std::vector<llvm::GlobalVariable *> mems;
   std::vector<llvm::GlobalVariable *> tables;
 
+  // Memory buffer for `ConstantDataArray::getRaw`.
+  // TODO: Should be kept with llvmContext.
+  std::vector<uint8_t *> OwnedBuffers;
+
   Context(llvm::LLVMContext &llvmContext, llvm::Module &llvmModule,
           Options opts)
       : opts(opts), llvmContext(llvmContext), llvmModule(llvmModule) {}
+
+  ~Context() {
+    for (auto *buf : OwnedBuffers) {
+      delete[] buf;
+    }
+  }
 
   void visitModule();
   void visitGlobal(wabt::Global &gl, bool isExternal);
