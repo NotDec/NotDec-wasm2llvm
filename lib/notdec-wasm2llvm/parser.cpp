@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <llvm/ADT/SmallVector.h>
+#include <llvm/IR/Attributes.h>
 #include <llvm/IR/Function.h>
 #include <new>
 #include <set>
@@ -412,6 +413,9 @@ const char *PARAM_PREFIX = "_param_";
 
 void Context::visitFunc(wabt::Func &func, llvm::Function *function) {
   using namespace llvm;
+
+  // Set that null pointer is valid for wasm funcs.
+  function->addFnAttr(Attribute::get(llvmContext, Attribute::NullPointerIsValid));
 
   BasicBlock *allocaBlock =
       llvm::BasicBlock::Create(llvmContext, "allocator", function);

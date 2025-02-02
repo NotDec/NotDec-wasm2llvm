@@ -314,7 +314,7 @@ void BlockContext::visitLoadInst(wabt::LoadExpr *expr) {
   assert(targetType != nullptr);
 
   addr = irBuilder.CreateBitCast(addr, PointerType::getUnqual(targetType));
-  Value *result = irBuilder.CreateLoad(targetType, addr, "loadResult");
+  Value *result = irBuilder.CreateLoad(targetType, addr, "v");
   // possible extension
   switch (expr->opcode) {
   case wabt::Opcode::I32Load8S:
@@ -2029,7 +2029,7 @@ llvm::Value *BlockContext::createLoadLane(llvm::Value *vector,
   vector = irBuilder.CreateBitCast(vector, ty);
   Type *elementType = ty->getArrayElementType();
   addr = irBuilder.CreateBitCast(addr, PointerType::getUnqual(elementType));
-  Value *result = irBuilder.CreateLoad(elementType, addr, "loadResult");
+  Value *result = irBuilder.CreateLoad(elementType, addr, "v");
   return irBuilder.CreateInsertElement(vector, result, imm);
 }
 
