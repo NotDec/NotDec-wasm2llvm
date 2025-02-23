@@ -43,6 +43,8 @@ void parse_wasm(llvm::LLVMContext &llvmContext, llvm::Module &llvmModule,
 void parse_wat(llvm::LLVMContext &llvmContext, llvm::Module &llvmModule,
                Options opts, std::string file_name);
 
+void free_buffer();
+
 } // namespace notdec::frontend
 
 #endif

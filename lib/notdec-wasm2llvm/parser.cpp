@@ -1,19 +1,25 @@
+#include <cstdint>
 #include <cstdlib>
-#include <llvm/ADT/SmallVector.h>
-#include <llvm/IR/Attributes.h>
-#include <llvm/IR/Function.h>
+
+#include <cstring>
 #include <new>
 #include <set>
+#include <vector>
+#include <string>
 
 #include "wabt/base-types.h"
 #include "wabt/ir.h"
+
 #include <llvm/ADT/ArrayRef.h>
+#include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
+#include <llvm/IR/Attributes.h>
 #include <llvm/IR/Constant.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Function.h>
 #include <llvm/IR/GlobalVariable.h>
-#include <string>
+
 
 #include "parser-block.h"
 #include "parser.h"
@@ -22,6 +28,15 @@
 namespace notdec::frontend::wasm {
 
 const char *DEFAULT_FUNCNAME_PREFIX = "func_";
+
+std::vector<uint8_t *> GlobBuffers;
+
+void free_buffer() {
+  for (uint8_t *buffer : GlobBuffers) {
+    delete[] buffer;
+  }
+  GlobBuffers.clear();
+}
 
 std::unique_ptr<Context> parse_wat(llvm::LLVMContext &llvmContext,
                                    llvm::Module &llvmModule, Options opts,
@@ -684,6 +699,8 @@ llvm::Constant *createMemInitializer(llvm::LLVMContext &llvmContext,
   assert(data.size() + offset <= memsize);
   // TODO store buffer somewhere. create a struct for memory?
   uint8_t *buffer = new uint8_t[memsize]; // TODO when to free?
+  memset(buffer, 0, memsize);
+  GlobBuffers.push_back(buffer);
   // copy data
   ::memcpy(buffer + offset, data.data(), data.size() * sizeof(uint8_t));
   return ConstantDataArray::getRaw(StringRef((char *)buffer, memsize), memsize,

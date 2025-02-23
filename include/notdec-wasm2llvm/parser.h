@@ -73,6 +73,7 @@ private:
   wabt::Index _table_index = 0;
 };
 
+void free_buffer();
 std::unique_ptr<Context> parse_wasm(llvm::LLVMContext &llvmContext,
                                     llvm::Module &llvmModule, Options opts,
                                     std::string file_name);

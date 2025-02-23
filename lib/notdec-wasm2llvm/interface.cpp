@@ -14,4 +14,8 @@ void parse_wat(llvm::LLVMContext &llvmContext, llvm::Module &llvmModule,
   notdec::frontend::wasm::parse_wat(llvmContext, llvmModule, opts, file_name);
 }
 
+void free_buffer() {
+  notdec::frontend::wasm::free_buffer();
+}
+
 } // namespace notdec::frontend
