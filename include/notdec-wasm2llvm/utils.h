@@ -5,13 +5,13 @@
 #include <cstring>
 #include <sstream>
 
+namespace notdec::frontend::wasm {
+
 template <typename T> static std::string int_to_hex(T i) {
   std::stringstream stream;
   stream << "0x" << std::hex << i;
   return stream.str();
 }
-
-namespace notdec::frontend::wasm {
 
 float ieee_float(uint32_t f);
 double ieee_double(uint64_t f);
