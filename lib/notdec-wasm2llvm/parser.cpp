@@ -251,6 +251,11 @@ void Context::visitModule() {
       if (function->getName().equals("memcpy")) {
         function->setName("memcpy_1");
       }
+    } else {
+      // set main as external
+      if (function->getName().equals("main")) {
+        function->setLinkage(llvm::GlobalValue::LinkageTypes::ExternalLinkage);
+      }
     }
     nonImportFuncs.push_back(function);
   }
