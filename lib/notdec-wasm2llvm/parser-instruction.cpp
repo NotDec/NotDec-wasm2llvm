@@ -569,7 +569,7 @@ void BlockContext::visitUnaryInst(wabt::UnaryExpr *expr) {
   case wabt::Opcode::I64Clz:
     f = Intrinsic::getDeclaration(
         &ctx.llvmModule, Intrinsic::ctlz,
-        {p1->getType(), Type::getInt1Ty(llvmContext)});
+        {p1->getType()});
     // is_zero_poison = false
     ret = irBuilder.CreateCall(
         f, {p1, ConstantInt::get(Type::getInt1Ty(llvmContext), false)});
@@ -578,7 +578,7 @@ void BlockContext::visitUnaryInst(wabt::UnaryExpr *expr) {
   case wabt::Opcode::I64Ctz:
     f = Intrinsic::getDeclaration(
         &ctx.llvmModule, Intrinsic::cttz,
-        {p1->getType(), Type::getInt1Ty(llvmContext)});
+        {p1->getType()});
     // is_zero_poison = false
     ret = irBuilder.CreateCall(
         f, {p1, ConstantInt::get(Type::getInt1Ty(llvmContext), false)});
@@ -1043,14 +1043,14 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
   case wabt::Opcode::I64Rotl:
     f = Intrinsic::getDeclaration(
         &ctx.llvmModule, Intrinsic::fshl,
-        {p1->getType(), p1->getType(), p1->getType()});
+        {p1->getType()});
     ret = irBuilder.CreateCall(f, {p2, p2, p1});
     break;
   case wabt::Opcode::I32Rotr:
   case wabt::Opcode::I64Rotr:
     f = Intrinsic::getDeclaration(
         &ctx.llvmModule, Intrinsic::fshr,
-        {p1->getType(), p1->getType(), p1->getType()});
+        {p1->getType()});
     ret = irBuilder.CreateCall(f, {p2, p2, p1});
     break;
 
@@ -1058,19 +1058,19 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
   case wabt::Opcode::F32Min:
   case wabt::Opcode::F64Min:
     f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::minnum,
-                                  {p1->getType(), p1->getType()});
+                                  {p1->getType()});
     ret = irBuilder.CreateCall(f, {p2, p1});
     break;
   case wabt::Opcode::F32Max:
   case wabt::Opcode::F64Max:
     f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::maxnum,
-                                  {p1->getType(), p1->getType()});
+                                  {p1->getType()});
     ret = irBuilder.CreateCall(f, {p2, p1});
     break;
   case wabt::Opcode::F32Copysign:
   case wabt::Opcode::F64Copysign:
     f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::copysign,
-                                  {p1->getType(), p1->getType()});
+                                  {p1->getType()});
     ret = irBuilder.CreateCall(f, {p2, p1});
     break;
 
@@ -1090,7 +1090,7 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
     // case wabt::Opcode::I8X16Swizzle:
     //     //TODO
     //     f = Intrinsic::getDeclaration(&ctx.llvmModule,
-    //     Intrinsic::aarch64_neon_tbl1, {p1->getType(),p1->getType()}); ret =
+    //     Intrinsic::aarch64_neon_tbl1, {p1->getType()}); ret =
     //     irBuilder.CreateCall(f, {p2, p1}); break;
 
 #define EMIT_SIMD_BINARY_OP(llvmType, emitCode)                                \
@@ -1105,7 +1105,7 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
     break;
   case wabt::Opcode::I8X16AddSatS:
     f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::sadd_sat,
-                                  {p1->getType(), p1->getType()});
+                                  {p1->getType()});
     EMIT_SIMD_BINARY_OP(type.i8x16Type, irBuilder.CreateCall(f, {left, right}));
     break;
   case wabt::Opcode::I8X16AddSatU: {
@@ -1121,7 +1121,7 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
     break;
   case wabt::Opcode::I16X8AddSatS:
     f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::sadd_sat,
-                                  {p1->getType(), p1->getType()});
+                                  {p1->getType()});
     EMIT_SIMD_BINARY_OP(type.i16x8Type, irBuilder.CreateCall(f, {left, right}));
     break;
   case wabt::Opcode::I16X8AddSatU: {
@@ -1150,7 +1150,7 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
     break;
   case wabt::Opcode::I8X16SubSatS:
     f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::ssub_sat,
-                                  {p1->getType(), p1->getType()});
+                                  {p1->getType()});
     EMIT_SIMD_BINARY_OP(type.i8x16Type, irBuilder.CreateCall(f, {left, right}));
     break;
   case wabt::Opcode::I8X16SubSatU: {
@@ -1164,7 +1164,7 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
     break;
   case wabt::Opcode::I16X8SubSatS:
     f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::ssub_sat,
-                                  {p1->getType(), p1->getType()});
+                                  {p1->getType()});
     EMIT_SIMD_BINARY_OP(type.i16x8Type, irBuilder.CreateCall(f, {left, right}));
     break;
   case wabt::Opcode::I16X8SubSatU: {
