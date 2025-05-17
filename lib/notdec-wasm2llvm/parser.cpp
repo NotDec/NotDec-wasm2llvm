@@ -28,6 +28,7 @@
 namespace notdec::frontend::wasm {
 
 const char *DEFAULT_FUNCNAME_PREFIX = "func_";
+const char *DEFAULT_TABLE_PREFIX = "table_";
 
 std::vector<uint8_t *> GlobBuffers;
 
@@ -547,7 +548,7 @@ void Context::visitTable(wabt::Table &table, bool isExternal) {
   GlobalVariable *gv = new GlobalVariable(
       llvmModule, aty, false, GlobalValue::LinkageTypes::ExternalLinkage,
       nullptr,
-      table.name.empty() ? "T" + std::to_string(_table_index) : table.name);
+      table.name.empty() ? DEFAULT_TABLE_PREFIX + std::to_string(_table_index) : table.name);
   this->tables.push_back(gv);
   _table_index++;
 }
