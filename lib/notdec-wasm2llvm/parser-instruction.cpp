@@ -88,14 +88,14 @@ void BlockContext::dispatchExprs(wabt::Expr &expr) {
     llvm::Value *src = convertStackAddr(0);
     llvm::Value *dest = convertStackAddr(0);
     irBuilder.CreateMemCpy(dest, llvm::MaybeAlign(0), src, llvm::MaybeAlign(0),
-                           num);
+                           num, true);
   } break;
   case ExprType::MemoryFill: {
     llvm::Value *num = popStack();
     llvm::Value *byte = popStack();
     byte = irBuilder.CreateTrunc(byte, llvm::Type::getInt8Ty(llvmContext));
     llvm::Value *dest = convertStackAddr(0);
-    irBuilder.CreateMemSet(dest, byte, num, llvm::MaybeAlign(0));
+    irBuilder.CreateMemSet(dest, byte, num, llvm::MaybeAlign(0), true);
   } break;
   case ExprType::Drop:
     assert(stack.size() > 0);
