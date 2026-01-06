@@ -928,6 +928,26 @@ void BlockContext::visitUnaryInst(wabt::UnaryExpr *expr) {
           ret, irBuilder.CreateExtractElement(vec, i), i);
     }
   } break;
+  case wabt::Opcode::I32Extend8S: {
+    ret = irBuilder.CreateTrunc(p1, Type::getInt8Ty(llvmContext));
+    ret = irBuilder.CreateSExt(ret, Type::getInt32Ty(llvmContext));
+  } break;
+  case wabt::Opcode::I32Extend16S: {
+    ret = irBuilder.CreateTrunc(p1, Type::getInt16Ty(llvmContext));
+    ret = irBuilder.CreateSExt(ret, Type::getInt32Ty(llvmContext));
+  } break;
+  case wabt::Opcode::I64Extend8S: {
+    ret = irBuilder.CreateTrunc(p1, Type::getInt8Ty(llvmContext));
+    ret = irBuilder.CreateSExt(ret, Type::getInt64Ty(llvmContext));
+  } break;
+  case wabt::Opcode::I64Extend16S: {
+    ret = irBuilder.CreateTrunc(p1, Type::getInt16Ty(llvmContext));
+    ret = irBuilder.CreateSExt(ret, Type::getInt64Ty(llvmContext));
+  } break;
+  case wabt::Opcode::I64Extend32S: {
+    ret = irBuilder.CreateTrunc(p1, Type::getInt32Ty(llvmContext));
+    ret = irBuilder.CreateSExt(ret, Type::getInt64Ty(llvmContext));
+  } break;
   default:
     std::cerr << __FILE__ << ":" << __LINE__ << ": "
               << "Error: Unsupported expr type: " << expr->opcode.GetName()
