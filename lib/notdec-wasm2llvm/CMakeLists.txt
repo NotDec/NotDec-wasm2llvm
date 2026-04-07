@@ -9,8 +9,20 @@ add_library(notdec-wasm2llvm SHARED STATIC
 
 target_link_libraries(notdec-wasm2llvm
     PUBLIC
-    wabt::wabt LLVMCore
+    wabt::wabt
 )
+
+if (NOTDEC_HAVE_SHARED_LLVM)
+    target_link_libraries(notdec-wasm2llvm
+        PUBLIC
+        notdec_llvm_deps
+    )
+else ()
+    target_link_libraries(notdec-wasm2llvm
+        PUBLIC
+        LLVMCore
+    )
+endif ()
 
 target_include_directories(notdec-wasm2llvm
     PUBLIC
