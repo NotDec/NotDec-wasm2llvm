@@ -18,6 +18,7 @@ include(ExternalProject)
 ExternalProject_add(
   wabt 
   URL https://github.com/WebAssembly/wabt/releases/download/1.0.33/wabt-1.0.33.tar.xz
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
   SOURCE_DIR ${CMAKE_BINARY_DIR}/wabt
   BINARY_DIR ${CMAKE_BINARY_DIR}/wabt-build
   INSTALL_COMMAND ""
