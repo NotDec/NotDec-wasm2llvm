@@ -164,16 +164,15 @@ void BlockContext::visitLocalGet(wabt::LocalGetExpr *expr) {
   using namespace llvm;
   // assert(expr->var.is_index()); // 冗余
   Value *target = locals.at(expr->var.index());
-  Value *loaded =
-      irBuilder.CreateLoad(target->getType()->getPointerElementType(), target);
+  auto *alloca = cast<AllocaInst>(target);
+  Value *loaded = irBuilder.CreateLoad(alloca->getAllocatedType(), target);
   stack.push_back(loaded);
 }
 
 void BlockContext::visitGlobalGet(wabt::GlobalGetExpr *expr) {
   using namespace llvm;
-  Value *target = ctx.globs.at(ctx.module->GetGlobalIndex(expr->var));
-  Value *loaded =
-      irBuilder.CreateLoad(target->getType()->getPointerElementType(), target);
+  GlobalVariable *target = ctx.globs.at(ctx.module->GetGlobalIndex(expr->var));
+  Value *loaded = irBuilder.CreateLoad(target->getValueType(), target);
   stack.push_back(loaded);
 }
 
@@ -245,8 +244,7 @@ llvm::Value *BlockContext::convertStackAddr(uint64_t offset) {
   // if ea+N/8 is larger than the length of mem, then trap?
   Value *arr[2] = {ConstantInt::getNullValue(base->getType()), base};
   return irBuilder.CreateGEP(
-      mem->getValueType(), mem,
-      makeArrayRef(arr, 2)); // Type::getInt8PtrTy(llvmContext)
+      mem->getValueType(), mem, ArrayRef<Value *>(arr, 2));
 }
 
 // 1. addr = mem + stack op
@@ -533,41 +531,41 @@ void BlockContext::visitUnaryInst(wabt::UnaryExpr *expr) {
   } break;
   case wabt::Opcode::F32Abs:
   case wabt::Opcode::F64Abs:
-    f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::fabs,
+    f = Intrinsic::getOrInsertDeclaration(&ctx.llvmModule, Intrinsic::fabs,
                                   p1->getType());
     ret = irBuilder.CreateCall(f, p1);
     break;
   case wabt::Opcode::F32X4Abs:
     EMIT_SIMD_UNARY_OP(type.f32x4Type, irBuilder.CreateCall(
-                                           Intrinsic::getDeclaration(
+                                           Intrinsic::getOrInsertDeclaration(
                                                &ctx.llvmModule, Intrinsic::fabs,
                                                type.f32x4Type),
                                            v));
     break;
   case wabt::Opcode::F64X2Abs:
     EMIT_SIMD_UNARY_OP(type.f64x2Type, irBuilder.CreateCall(
-                                           Intrinsic::getDeclaration(
+                                           Intrinsic::getOrInsertDeclaration(
                                                &ctx.llvmModule, Intrinsic::fabs,
                                                type.f64x2Type),
                                            v));
     break;
   case wabt::Opcode::I32Popcnt:
   case wabt::Opcode::I64Popcnt:
-    f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::ctpop,
+    f = Intrinsic::getOrInsertDeclaration(&ctx.llvmModule, Intrinsic::ctpop,
                                   p1->getType());
     ret = irBuilder.CreateCall(f, p1);
     break;
   case wabt::Opcode::I8X16Popcnt:
     EMIT_SIMD_UNARY_OP(
         type.i8x16Type,
-        irBuilder.CreateCall(Intrinsic::getDeclaration(&ctx.llvmModule,
+        irBuilder.CreateCall(Intrinsic::getOrInsertDeclaration(&ctx.llvmModule,
                                                        Intrinsic::ctpop,
                                                        type.i8x16Type),
                              v));
     break;
   case wabt::Opcode::I32Clz:
   case wabt::Opcode::I64Clz:
-    f = Intrinsic::getDeclaration(
+    f = Intrinsic::getOrInsertDeclaration(
         &ctx.llvmModule, Intrinsic::ctlz,
         {p1->getType()});
     // is_zero_poison = false
@@ -576,7 +574,7 @@ void BlockContext::visitUnaryInst(wabt::UnaryExpr *expr) {
     break;
   case wabt::Opcode::I32Ctz:
   case wabt::Opcode::I64Ctz:
-    f = Intrinsic::getDeclaration(
+    f = Intrinsic::getOrInsertDeclaration(
         &ctx.llvmModule, Intrinsic::cttz,
         {p1->getType()});
     // is_zero_poison = false
@@ -586,20 +584,20 @@ void BlockContext::visitUnaryInst(wabt::UnaryExpr *expr) {
 
   case wabt::Opcode::F32Ceil:
   case wabt::Opcode::F64Ceil:
-    f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::ceil,
+    f = Intrinsic::getOrInsertDeclaration(&ctx.llvmModule, Intrinsic::ceil,
                                   p1->getType());
     ret = irBuilder.CreateCall(f, p1);
     break;
   case wabt::Opcode::F32X4Ceil:
     EMIT_SIMD_UNARY_OP(type.f32x4Type, irBuilder.CreateCall(
-                                           Intrinsic::getDeclaration(
+                                           Intrinsic::getOrInsertDeclaration(
                                                &ctx.llvmModule, Intrinsic::ceil,
                                                type.f32x4Type),
                                            v));
     break;
   case wabt::Opcode::F64X2Ceil:
     EMIT_SIMD_UNARY_OP(type.f64x2Type, irBuilder.CreateCall(
-                                           Intrinsic::getDeclaration(
+                                           Intrinsic::getOrInsertDeclaration(
                                                &ctx.llvmModule, Intrinsic::ceil,
                                                type.f64x2Type),
                                            v));
@@ -607,14 +605,14 @@ void BlockContext::visitUnaryInst(wabt::UnaryExpr *expr) {
 
   case wabt::Opcode::F32Floor:
   case wabt::Opcode::F64Floor:
-    f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::floor,
+    f = Intrinsic::getOrInsertDeclaration(&ctx.llvmModule, Intrinsic::floor,
                                   p1->getType());
     ret = irBuilder.CreateCall(f, p1);
     break;
   case wabt::Opcode::F32X4Floor:
     EMIT_SIMD_UNARY_OP(
         type.f32x4Type,
-        irBuilder.CreateCall(Intrinsic::getDeclaration(&ctx.llvmModule,
+        irBuilder.CreateCall(Intrinsic::getOrInsertDeclaration(&ctx.llvmModule,
                                                        Intrinsic::floor,
                                                        type.f32x4Type),
                              v));
@@ -622,7 +620,7 @@ void BlockContext::visitUnaryInst(wabt::UnaryExpr *expr) {
   case wabt::Opcode::F64X2Floor:
     EMIT_SIMD_UNARY_OP(
         type.f64x2Type,
-        irBuilder.CreateCall(Intrinsic::getDeclaration(&ctx.llvmModule,
+        irBuilder.CreateCall(Intrinsic::getOrInsertDeclaration(&ctx.llvmModule,
                                                        Intrinsic::floor,
                                                        type.f64x2Type),
                              v));
@@ -633,14 +631,14 @@ void BlockContext::visitUnaryInst(wabt::UnaryExpr *expr) {
   // https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/Numeric/Nearest
   case wabt::Opcode::F32Nearest:
   case wabt::Opcode::F64Nearest:
-    f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::roundeven,
+    f = Intrinsic::getOrInsertDeclaration(&ctx.llvmModule, Intrinsic::roundeven,
                                   p1->getType());
     ret = irBuilder.CreateCall(f, p1);
     break;
   case wabt::Opcode::F32X4Nearest:
     EMIT_SIMD_UNARY_OP(
         type.f32x4Type,
-        irBuilder.CreateCall(Intrinsic::getDeclaration(&ctx.llvmModule,
+        irBuilder.CreateCall(Intrinsic::getOrInsertDeclaration(&ctx.llvmModule,
                                                        Intrinsic::roundeven,
                                                        type.f32x4Type),
                              v));
@@ -648,7 +646,7 @@ void BlockContext::visitUnaryInst(wabt::UnaryExpr *expr) {
   case wabt::Opcode::F64X2Nearest:
     EMIT_SIMD_UNARY_OP(
         type.f64x2Type,
-        irBuilder.CreateCall(Intrinsic::getDeclaration(&ctx.llvmModule,
+        irBuilder.CreateCall(Intrinsic::getOrInsertDeclaration(&ctx.llvmModule,
                                                        Intrinsic::roundeven,
                                                        type.f64x2Type),
                              v));
@@ -656,14 +654,14 @@ void BlockContext::visitUnaryInst(wabt::UnaryExpr *expr) {
 
   case wabt::Opcode::F32Trunc:
   case wabt::Opcode::F64Trunc:
-    f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::trunc,
+    f = Intrinsic::getOrInsertDeclaration(&ctx.llvmModule, Intrinsic::trunc,
                                   p1->getType());
     ret = irBuilder.CreateCall(f, p1);
     break;
   case wabt::Opcode::F32X4Trunc:
     EMIT_SIMD_UNARY_OP(
         type.f32x4Type,
-        irBuilder.CreateCall(Intrinsic::getDeclaration(&ctx.llvmModule,
+        irBuilder.CreateCall(Intrinsic::getOrInsertDeclaration(&ctx.llvmModule,
                                                        Intrinsic::trunc,
                                                        type.f32x4Type),
                              v));
@@ -671,7 +669,7 @@ void BlockContext::visitUnaryInst(wabt::UnaryExpr *expr) {
   case wabt::Opcode::F64X2Trunc:
     EMIT_SIMD_UNARY_OP(
         type.f64x2Type,
-        irBuilder.CreateCall(Intrinsic::getDeclaration(&ctx.llvmModule,
+        irBuilder.CreateCall(Intrinsic::getOrInsertDeclaration(&ctx.llvmModule,
                                                        Intrinsic::trunc,
                                                        type.f64x2Type),
                              v));
@@ -679,20 +677,20 @@ void BlockContext::visitUnaryInst(wabt::UnaryExpr *expr) {
 
   case wabt::Opcode::F32Sqrt:
   case wabt::Opcode::F64Sqrt:
-    f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::sqrt,
+    f = Intrinsic::getOrInsertDeclaration(&ctx.llvmModule, Intrinsic::sqrt,
                                   p1->getType());
     ret = irBuilder.CreateCall(f, p1);
     break;
   case wabt::Opcode::F32X4Sqrt:
     EMIT_SIMD_UNARY_OP(type.f32x4Type, irBuilder.CreateCall(
-                                           Intrinsic::getDeclaration(
+                                           Intrinsic::getOrInsertDeclaration(
                                                &ctx.llvmModule, Intrinsic::sqrt,
                                                type.f32x4Type),
                                            v));
     break;
   case wabt::Opcode::F64X2Sqrt:
     EMIT_SIMD_UNARY_OP(type.f64x2Type, irBuilder.CreateCall(
-                                           Intrinsic::getDeclaration(
+                                           Intrinsic::getOrInsertDeclaration(
                                                &ctx.llvmModule, Intrinsic::sqrt,
                                                type.f64x2Type),
                                            v));
@@ -973,7 +971,7 @@ llvm::Value *BlockContext::createSIMDExtend(llvm::Value *vector,
   for (int i = startIdx; i < elementCount; i++)
     mask[i] = i;
   halfVector = irBuilder.CreateShuffleVector(
-      vector, halfVector, makeArrayRef<int>(mask, elementCount));
+      vector, halfVector, ArrayRef<int>(mask, elementCount));
   if (sign)
     return irBuilder.CreateSExt(halfVector, destType);
   else
@@ -1061,14 +1059,14 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
 
   case wabt::Opcode::I32Rotl:
   case wabt::Opcode::I64Rotl:
-    f = Intrinsic::getDeclaration(
+    f = Intrinsic::getOrInsertDeclaration(
         &ctx.llvmModule, Intrinsic::fshl,
         {p1->getType()});
     ret = irBuilder.CreateCall(f, {p2, p2, p1});
     break;
   case wabt::Opcode::I32Rotr:
   case wabt::Opcode::I64Rotr:
-    f = Intrinsic::getDeclaration(
+    f = Intrinsic::getOrInsertDeclaration(
         &ctx.llvmModule, Intrinsic::fshr,
         {p1->getType()});
     ret = irBuilder.CreateCall(f, {p2, p2, p1});
@@ -1077,19 +1075,19 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
   // floor type only
   case wabt::Opcode::F32Min:
   case wabt::Opcode::F64Min:
-    f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::minnum,
+    f = Intrinsic::getOrInsertDeclaration(&ctx.llvmModule, Intrinsic::minnum,
                                   {p1->getType()});
     ret = irBuilder.CreateCall(f, {p2, p1});
     break;
   case wabt::Opcode::F32Max:
   case wabt::Opcode::F64Max:
-    f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::maxnum,
+    f = Intrinsic::getOrInsertDeclaration(&ctx.llvmModule, Intrinsic::maxnum,
                                   {p1->getType()});
     ret = irBuilder.CreateCall(f, {p2, p1});
     break;
   case wabt::Opcode::F32Copysign:
   case wabt::Opcode::F64Copysign:
-    f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::copysign,
+    f = Intrinsic::getOrInsertDeclaration(&ctx.llvmModule, Intrinsic::copysign,
                                   {p1->getType()});
     ret = irBuilder.CreateCall(f, {p2, p1});
     break;
@@ -1109,7 +1107,7 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
     break;
     // case wabt::Opcode::I8X16Swizzle:
     //     //TODO
-    //     f = Intrinsic::getDeclaration(&ctx.llvmModule,
+    //     f = Intrinsic::getOrInsertDeclaration(&ctx.llvmModule,
     //     Intrinsic::aarch64_neon_tbl1, {p1->getType()}); ret =
     //     irBuilder.CreateCall(f, {p2, p1}); break;
 
@@ -1124,7 +1122,7 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
     EMIT_SIMD_BINARY_OP(type.i8x16Type, irBuilder.CreateAdd(left, right));
     break;
   case wabt::Opcode::I8X16AddSatS:
-    f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::sadd_sat,
+    f = Intrinsic::getOrInsertDeclaration(&ctx.llvmModule, Intrinsic::sadd_sat,
                                   {p1->getType()});
     EMIT_SIMD_BINARY_OP(type.i8x16Type, irBuilder.CreateCall(f, {left, right}));
     break;
@@ -1140,7 +1138,7 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
     EMIT_SIMD_BINARY_OP(type.i16x8Type, irBuilder.CreateAdd(left, right));
     break;
   case wabt::Opcode::I16X8AddSatS:
-    f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::sadd_sat,
+    f = Intrinsic::getOrInsertDeclaration(&ctx.llvmModule, Intrinsic::sadd_sat,
                                   {p1->getType()});
     EMIT_SIMD_BINARY_OP(type.i16x8Type, irBuilder.CreateCall(f, {left, right}));
     break;
@@ -1169,7 +1167,7 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
     EMIT_SIMD_BINARY_OP(type.i8x16Type, irBuilder.CreateSub(left, right));
     break;
   case wabt::Opcode::I8X16SubSatS:
-    f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::ssub_sat,
+    f = Intrinsic::getOrInsertDeclaration(&ctx.llvmModule, Intrinsic::ssub_sat,
                                   {p1->getType()});
     EMIT_SIMD_BINARY_OP(type.i8x16Type, irBuilder.CreateCall(f, {left, right}));
     break;
@@ -1183,7 +1181,7 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
     EMIT_SIMD_BINARY_OP(type.i16x8Type, irBuilder.CreateSub(left, right));
     break;
   case wabt::Opcode::I16X8SubSatS:
-    f = Intrinsic::getDeclaration(&ctx.llvmModule, Intrinsic::ssub_sat,
+    f = Intrinsic::getOrInsertDeclaration(&ctx.llvmModule, Intrinsic::ssub_sat,
                                   {p1->getType()});
     EMIT_SIMD_BINARY_OP(type.i16x8Type, irBuilder.CreateCall(f, {left, right}));
     break;
@@ -1345,7 +1343,7 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
   case wabt::Opcode::F32X4Min:
     EMIT_SIMD_BINARY_OP(
         type.f32x4Type,
-        irBuilder.CreateCall(Intrinsic::getDeclaration(&ctx.llvmModule,
+        irBuilder.CreateCall(Intrinsic::getOrInsertDeclaration(&ctx.llvmModule,
                                                        Intrinsic::minnum,
                                                        type.f32x4Type),
                              {left, right}));
@@ -1353,7 +1351,7 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
   case wabt::Opcode::F64X2Min:
     EMIT_SIMD_BINARY_OP(
         type.f64x2Type,
-        irBuilder.CreateCall(Intrinsic::getDeclaration(&ctx.llvmModule,
+        irBuilder.CreateCall(Intrinsic::getOrInsertDeclaration(&ctx.llvmModule,
                                                        Intrinsic::minnum,
                                                        type.f64x2Type),
                              {left, right}));
@@ -1403,7 +1401,7 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
   case wabt::Opcode::F32X4Max:
     EMIT_SIMD_BINARY_OP(
         type.f32x4Type,
-        irBuilder.CreateCall(Intrinsic::getDeclaration(&ctx.llvmModule,
+        irBuilder.CreateCall(Intrinsic::getOrInsertDeclaration(&ctx.llvmModule,
                                                        Intrinsic::maxnum,
                                                        type.f32x4Type),
                              {left, right}));
@@ -1411,7 +1409,7 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
   case wabt::Opcode::F64X2Max:
     EMIT_SIMD_BINARY_OP(
         type.f64x2Type,
-        irBuilder.CreateCall(Intrinsic::getDeclaration(&ctx.llvmModule,
+        irBuilder.CreateCall(Intrinsic::getOrInsertDeclaration(&ctx.llvmModule,
                                                        Intrinsic::maxnum,
                                                        type.f64x2Type),
                              {left, right}));
@@ -1457,19 +1455,19 @@ void BlockContext::visitBinaryInst(wabt::BinaryExpr *expr) {
   // SIMD Narrow
   // case wabt::Opcode::I8X16NarrowI16X8S:
   //     EMIT_SIMD_BINARY_OP(type.i16x8Type,
-  //     irBuilder.CreateCall(Intrinsic::getDeclaration(&ctx.llvmModule,
+  //     irBuilder.CreateCall(Intrinsic::getOrInsertDeclaration(&ctx.llvmModule,
   //     Intrinsic::x86_sse2_packsswb_128), {left,right})); break;
   // case wabt::Opcode::I8X16NarrowI16X8U:
   //     EMIT_SIMD_BINARY_OP(type.i16x8Type,
-  //     irBuilder.CreateCall(Intrinsic::getDeclaration(&ctx.llvmModule,
+  //     irBuilder.CreateCall(Intrinsic::getOrInsertDeclaration(&ctx.llvmModule,
   //     Intrinsic::x86_sse2_packuswb_128), {left,right})); break;
   // case wabt::Opcode::I16X8NarrowI32X4S:
   //     EMIT_SIMD_BINARY_OP(type.i32x4Type,
-  //     irBuilder.CreateCall(Intrinsic::getDeclaration(&ctx.llvmModule,
+  //     irBuilder.CreateCall(Intrinsic::getOrInsertDeclaration(&ctx.llvmModule,
   //     Intrinsic::x86_sse2_packssdw_128), {left,right})); break;
   // case wabt::Opcode::I16X8NarrowI32X4U:
   //     EMIT_SIMD_BINARY_OP(type.i32x4Type,
-  //     irBuilder.CreateCall(Intrinsic::getDeclaration(&ctx.llvmModule,
+  //     irBuilder.CreateCall(Intrinsic::getOrInsertDeclaration(&ctx.llvmModule,
   //     Intrinsic::x86_sse41_packusdw), {left,right})); break;
 
   // SIMD Extmul
@@ -1890,11 +1888,11 @@ void BlockContext::visitCallIndirectInst(wabt::CallIndirectExpr *expr) {
   assert(funcType->getNumParams() == paramCount);
   // 4 取下标，调用函数
   Value *arr[2] = {ConstantInt::getNullValue(index->getType()), index};
-  Value *ptr =
-      irBuilder.CreateGEP(table->getValueType(), table, makeArrayRef(arr, 2));
+  Value *ptr = irBuilder.CreateGEP(table->getValueType(), table,
+                                   ArrayRef<Value *>(arr, 2));
 
-  Value *funcPtr = irBuilder.CreateLoad(ptr->getType()->getPointerElementType(),
-                                        ptr, "callind_funcptr");
+  Type *tableElemType = cast<ArrayType>(table->getValueType())->getElementType();
+  Value *funcPtr = irBuilder.CreateLoad(tableElemType, ptr, "callind_funcptr");
   // if (ctx.opts.GenIntToPtr)
   funcPtr =
       irBuilder.CreateBitOrPointerCast(funcPtr, PointerType::get(funcType, 0));

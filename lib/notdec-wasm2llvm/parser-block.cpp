@@ -161,14 +161,7 @@ void BlockContext::unwindStackTo(std::size_t stack_pos) {
 }
 
 llvm::BasicBlock::iterator getFirstNonPHIOrDbgOrLifetime(llvm::BasicBlock *bb) {
-  auto entryInst = bb->getFirstNonPHIOrDbgOrLifetime();
-  llvm::BasicBlock::iterator it;
-  if (entryInst != nullptr) {
-    it = entryInst->getIterator();
-  } else {
-    it = bb->begin();
-  }
-  return it;
+  return bb->getFirstNonPHIOrDbgOrLifetime();
 }
 
 void BlockContext::visitControlInsts(llvm::BasicBlock *entry,

@@ -19,6 +19,7 @@
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/GlobalVariable.h>
+#include <llvm/TargetParser/Triple.h>
 
 
 #include "parser-block.h"
@@ -139,7 +140,7 @@ void Context::visitModule() {
 
   // target triple = "wasm32-unknown-wasi"
   llvmModule.setDataLayout("e-m:e-p:32:32-i64:64-n32:64-S128");
-  llvmModule.setTargetTriple("wasm32-unknown-wasi");
+  llvmModule.setTargetTriple(llvm::Triple("wasm32-unknown-wasi"));
 
   // change module name from file name to wasm module name if there is
   if (!module->name.empty()) {
@@ -237,8 +238,8 @@ void Context::visitModule() {
       if (!opts.NoRemoveDollar && function->getName().front() == '$') {
         function->setName(removeDollar(function->getName()));
       }
-      if (function->getName().equals("__original_main") ||
-          function->getName().equals("__main_argc_argv")) {
+      if (function->getName() == "__original_main" ||
+          function->getName() == "__main_argc_argv") {
         function->setLinkage(llvm::GlobalValue::LinkageTypes::ExternalLinkage);
         if (llvm::Function *func = this->llvmModule.getFunction("main")) {
           func->setName("");
@@ -246,15 +247,15 @@ void Context::visitModule() {
         function->setName("main");
       }
       // Temporary fix for the sysY test cases
-      if (function->getName().equals("memset")) {
+      if (function->getName() == "memset") {
         function->setName("memset_1");
       }
-      if (function->getName().equals("memcpy")) {
+      if (function->getName() == "memcpy") {
         function->setName("memcpy_1");
       }
     } else {
       // set main as external
-      if (function->getName().equals("main")) {
+      if (function->getName() == "main") {
         function->setLinkage(llvm::GlobalValue::LinkageTypes::ExternalLinkage);
       }
     }
