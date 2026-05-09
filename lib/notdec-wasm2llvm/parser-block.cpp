@@ -31,7 +31,7 @@ void BlockContext::visitBlock(wabt::LabelType lty, llvm::BasicBlock *entry,
   case LabelType::Block:
   case LabelType::Func:
   case LabelType::If:
-    assert(exit->getFirstNonPHI() == nullptr);
+    assert(exit->getFirstNonPHIIt() == exit->end());
     // 把参数留在栈上
     // 为基本块返回值创建Phi
     irBuilder.SetInsertPoint(exit, exit->begin());
@@ -50,7 +50,7 @@ void BlockContext::visitBlock(wabt::LabelType lty, llvm::BasicBlock *entry,
     irBuilder.SetInsertPoint(entry);
     break;
   case LabelType::Loop:
-    assert(entry->getFirstNonPHI() == nullptr);
+    assert(entry->getFirstNonPHIIt() == entry->end());
     // 为基本块参数创建Phi，放到那边BreakoutTarget里。
     // 为参数创建Phi
     irBuilder.SetInsertPoint(entry, entry->begin());
@@ -454,7 +454,7 @@ extendType::extendType(llvm::LLVMContext &llvmContext) {
   i64Type = llvm::Type::getInt64Ty(llvmContext);
   f32Type = llvm::Type::getFloatTy(llvmContext);
   f64Type = llvm::Type::getDoubleTy(llvmContext);
-  i8PtrType = i8Type->getPointerTo();
+  i8PtrType = llvm::PointerType::get(llvmContext, 0);
 
   i8x8Type = llvm::FixedVectorType::get(i8Type, 8);
   i16x4Type = llvm::FixedVectorType::get(i16Type, 4);

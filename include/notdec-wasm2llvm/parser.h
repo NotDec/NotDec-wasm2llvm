@@ -54,8 +54,7 @@ struct Context {
   void visitTable(wabt::Table &table, bool isExternal);
   void visitElem(wabt::ElemSegment &elem);
   llvm::PointerType *getFuncPointerType() {
-    return llvm::PointerType::get(
-        llvm::FunctionType::get(llvm::Type::getVoidTy(llvmContext), false), 0);
+    return llvm::PointerType::get(llvmContext, 0);
   }
   llvm::Constant *visitInitExpr(wabt::ExprList &expr);
   llvm::GlobalVariable *visitDataSegment(wabt::DataSegment &ds);

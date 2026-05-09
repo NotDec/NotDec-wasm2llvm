@@ -209,7 +209,7 @@ void BlockContext::visitStoreInst(wabt::StoreExpr *expr) {
     break;
   }
   assert(targetType != nullptr);
-  addr = irBuilder.CreateBitCast(addr, PointerType::getUnqual(targetType));
+  addr = irBuilder.CreateBitCast(addr, PointerType::get(llvmContext, 0));
   irBuilder.CreateStore(val, addr);
 }
 
@@ -237,8 +237,7 @@ llvm::Value *BlockContext::convertStackAddr(uint64_t offset) {
 
   // 反编译（非重编译）时不生成gep
   if (ctx.opts.GenIntToPtr) {
-    return irBuilder.CreateIntToPtr(
-        base, PointerType::get(IntegerType::get(llvmContext, 8), 0));
+    return irBuilder.CreateIntToPtr(base, PointerType::get(llvmContext, 0));
   }
 
   // if ea+N/8 is larger than the length of mem, then trap?
@@ -311,7 +310,7 @@ void BlockContext::visitLoadInst(wabt::LoadExpr *expr) {
   }
   assert(targetType != nullptr);
 
-  addr = irBuilder.CreateBitCast(addr, PointerType::getUnqual(targetType));
+  addr = irBuilder.CreateBitCast(addr, PointerType::get(llvmContext, 0));
   Value *result = irBuilder.CreateLoad(targetType, addr);
   // possible extension
   switch (expr->opcode) {
@@ -1895,7 +1894,7 @@ void BlockContext::visitCallIndirectInst(wabt::CallIndirectExpr *expr) {
   Value *funcPtr = irBuilder.CreateLoad(tableElemType, ptr, "callind_funcptr");
   // if (ctx.opts.GenIntToPtr)
   funcPtr =
-      irBuilder.CreateBitOrPointerCast(funcPtr, PointerType::get(funcType, 0));
+      irBuilder.CreateBitOrPointerCast(funcPtr, PointerType::get(llvmContext, 0));
   // auto callArgsAlloca = (Value **)calloc(sizeof(Value *), paramCount);
   llvm::SmallVector<Value *> callArgs(paramCount);
   // https://stackoverflow.com/questions/5458204/unsigned-int-reverse-iteration-with-for-loops
@@ -2046,7 +2045,7 @@ llvm::Value *BlockContext::createLoadLane(llvm::Value *vector,
   using namespace llvm;
   vector = irBuilder.CreateBitCast(vector, ty);
   Type *elementType = ty->getArrayElementType();
-  addr = irBuilder.CreateBitCast(addr, PointerType::getUnqual(elementType));
+  addr = irBuilder.CreateBitCast(addr, PointerType::get(llvmContext, 0));
   Value *result = irBuilder.CreateLoad(elementType, addr);
   return irBuilder.CreateInsertElement(vector, result, imm);
 }
@@ -2056,8 +2055,7 @@ llvm::Value *BlockContext::createStoreLane(llvm::Value *vector,
                                            uint64_t imm) {
   using namespace llvm;
   vector = irBuilder.CreateBitCast(vector, ty);
-  Type *elementType = ty->getArrayElementType();
-  addr = irBuilder.CreateBitCast(addr, PointerType::getUnqual(elementType));
+  addr = irBuilder.CreateBitCast(addr, PointerType::get(llvmContext, 0));
   Value *result = irBuilder.CreateExtractElement(vector, imm);
   return irBuilder.CreateStore(result, addr);
 }
